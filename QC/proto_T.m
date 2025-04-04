@@ -856,6 +856,8 @@ function data_initialize
     set(popupmenu1,'String',AllPhases);
 
     guidata(Anneal_fig,data)
+    InitializeWaveformDisplays;
+    InitializeResidualMaps;
 end
 
 % --------------------------------------------------------------------
@@ -890,14 +892,6 @@ SacTag = 'Z.sac'; % extension of files to be read
 data.SigInZ = StrcOut;
 
 SacTag = 'R.sac'; % extension of files to be read
-[StrcOut,d0,d1,baz0,baz1,distance,t0,t1,I,SacFilesN] = ReadAllSacFile(data.DirSac,SacTag);
-data.SigInN = StrcOut;
-
-SacTag = 'T.sac'; % extension of files to be read
-[StrcOut,d0,d1,baz0,baz1,distance,t0,t1,I,SacFilesE] = ReadAllSacFile(data.DirSac,SacTag);
-data.SigInE = StrcOut;
-
-SacTag = 'R.sac'; % extension of files to be read
 [StrcOut,d0,d1,baz0,baz1,distance,t0,t1,I,SacFilesR] = ReadAllSacFile(data.DirSac,SacTag);
 data.SigInR = StrcOut;
 
@@ -906,8 +900,6 @@ SacTag = 'T.sac'; % extension of files to be read
 data.SigInT = StrcOut;
 
 data.SacFilesZ = SacFilesZ;
-data.SacFilesN = SacFilesN;
-data.SacFilesE = SacFilesE;
 data.SacFilesR = SacFilesR;
 data.SacFilesT = SacFilesT;
 data.distmin = d0;
@@ -918,8 +910,7 @@ data.distance = distance;
 data.I = I;
 
 Longitude = [];
-Latitude = [];
-        
+Latitude = [];        
 for k = 1:length(StrcOut)
    Longitude = [Longitude ; data.SigInZ(k).HdrData.STLO];
    Latitude = [Latitude ; data.SigInZ(k).HdrData.STLA];
@@ -1065,7 +1056,7 @@ DisplayMap;
 % CHOOSE panel_focal
 guidata(Anneal_fig,data)
 
-%DisplayFocal;
+DisplayFocal;
 
 % CHOOSE AXES1
 %axes(axes1);cla;hold on
@@ -1126,6 +1117,11 @@ end
 
     % INITIALIZE TRACE COUNTER
     ii = 0;
+
+    data.SigZ = zeros(NsamplesTot, data.Ntraces);
+    data.SigR = zeros(NsamplesTot, data.Ntraces);
+    data.SigT = zeros(NsamplesTot, data.Ntraces);
+
 
     for itrace = 1:data.Ntraces
       waitbar(itrace/data.Ntraces);
@@ -1223,9 +1219,9 @@ end
             data.SigFlT(itrace).SeisData = zeros(1,size(data.Sig,1));
 
           end
-          data.SigZ = [data.SigZ,data.SigFlZ(itrace).SeisData'];
-          data.SigR = [data.SigR,data.SigFlR(itrace).SeisData'];
-          data.SigT = [data.SigT,data.SigFlT(itrace).SeisData'];
+          data.SigZ(:,itrace) = data.SigFlZ(itrace).SeisData';
+          data.SigR(:,itrace) = data.SigFlR(itrace).SeisData';
+          data.SigT(:,itrace) = data.SigFlT(itrace).SeisData';
 
         else
 
@@ -1876,10 +1872,9 @@ end
         data.WavePick(ic) = ipick; % and store it.
         data.tpick = TimeMean(ipick);
         
-        for i = 1:Ntraces
             % COMPUTE RESIDUAL BETWEEN THEORETICAL AND OBSERVED TRAVEL TIMES
-            res(i) = data.tpick-data.TimeDelay(i)-Tmin;
-        end
+        res = data.tpick - data.TimeDelay - Tmin;
+
 
         data.ResMean = mean(res);
             
@@ -1889,14 +1884,18 @@ end
     
         MeanTrace = data.MeanTrace;
         ss = data.SigFlZ(1).SeisData;
-        for i = 1:Ntraces
-            s = sigZ(i,:);
-            num = Stack*s';
-            denom = sqrt(s*s')*sqrt(Stack*Stack');
-%            num = sum(data.MeanTrace*data.SigFlZ(i).SeisData);
-%            denom = sqrt(sum(abs(data.SigFlZ(i).SeisData.^2)))*sqrt(sum(abs(data.MeanTrace.^2)));
-            data.CoefCor(i) = num/denom;
-        end
+%         for i = 1:Ntraces
+%             s = sigZ(i,:);
+%             num = Stack*s';
+%             denom = sqrt(s*s')*sqrt(Stack*Stack');
+% %            num = sum(data.MeanTrace*data.SigFlZ(i).SeisData);
+% %            denom = sqrt(sum(abs(data.SigFlZ(i).SeisData.^2)))*sqrt(sum(abs(data.MeanTrace.^2)));
+%             data.CoefCor(i) = num/denom;
+%         end
+
+        num = sigZ * Stack';
+        denom = sqrt(sum(sigZ.^2, 2)) * sqrt(Stack*Stack');
+        data.CoefCor = num ./ denom;
 
         % RESET THE BUTTON DOWN FUNCTION
         set(gcf,'pointer','default');
@@ -2225,10 +2224,12 @@ distant = data.SigFlZ(1).HdrData.GCARC;
 depth = data.SigFlZ(1).HdrData.EVDP;
 
 %focalmech(M,0,0,2,'r','dc','text',text,'piecring',1,'azimuth',azimuth,'degree',distant,'depth',depth,'phase','P')
-focalmech(M,0,0,2,'r','dc','piecring',1,'azimuth',azimuth,'degree',distant,'depth',depth,'phase','P')
+focalmech(M,0,0,2,'r','dc','piecring',0,'azimuth',azimuth,'degree',distant,'depth',depth,'phase','P')
 hold off
 end
 % -------------------------------------------------------------------------
+
+    
 function M = DownloadGCMT
 
 data = guidata(Anneal_fig);
@@ -2346,410 +2347,172 @@ function Radiobutton_transverse
 end
 
 % ----------------------------------------------------------------------
-function DisplayTraces
-        
-axes(axes1);cla;hold on
-
-data = guidata(Anneal_fig);
-        
-% GET CURRENT SELECTION OF TRACES INSIDE CLUSTER
-SelectionZ = data.SelectionZ;
-
-% TIME
-Tmax = 0;
-Tmin = 1000;
-
-% loop over 10 events in cluster.
-for ii = data.NminZ:data.NmaxZ
-            
-    if (data.Align == 1)
-        TimeShift = data.residu(ii);
-    else
-        TimeShift = 0;
-    end
-            
-    % STATION NAME
-    StaName = [data.SigFlZ(ii).HdrData.KSTNM];
-    [t0,t1,hpl] = PlotOnTrace(data.SigFlZ(ii).SeisData,-TimeShift,data.SigFlZ(ii).HdrData.DELTA,ii-data.NminZ+2);
-    data.DispTraceZ(ii) = hpl;
-    Tmax = max(Tmax,t1);
-    Tmin = min(Tmin,t0);
-            
-    % ADD STATION NAME
-    text(Tmin-3.5,ii-data.NminZ+1.5,StaName, ...
-        'FontSize',13,'HorizontalAlignment','left','VerticalAlignment','middle');
-
-    if SelectionZ(ii) == 0
-            
-        set(hpl,'Color',[0.8 0.8 0.8]);
-                
-        if (data.Align == 1)  % annealing runned
-            set(data.rb(ii),'Visible','On');
-            set(data.rb(ii),'Value',0);
-        end
-                
-    else
-        
-        if (data.Align == 1) ; % annealing runned
-            set(data.rb(ii),'Visible','On');
-            set(data.rb(ii),'Value',1);
-                    
-            % ADD RESIDUAL AND CORRELATION BETWEEN MEAN TRACE AND
-            % EACH TRACE
-            residual = data.residu(ii);
-            RESIDU = num2str(residual,'%5.3f');
-            amp = data.AmpZ(ii);
-            dAmp = num2str(amp,'%4.3f');
-            strtr = strcat(RESIDU,'/',dAmp);
-            %text(Tmin-1,ii-data.NminZ+1.8,RESIDU,...
-            text(Tmin+2,ii-data.NminZ+1.8,strtr,...
-              'FontSize',10,'HorizontalAlignment','right','VerticalAlignment','middle');
-                    
-            Coef = data.CoefCor(ii);
-            COEF = num2str(Coef,'%4.3f');
-            text(Tmin-6.5,ii-data.NminZ+2,COEF,...
-              'FontSize',10,'HorizontalAlignment','right','VerticalAlignment','middle');
-            text(Tmin-6.5,1,'R^2',...
-              'FontSize',10,'HorizontalAlignment','right','VerticalAlignment','middle');
-
-            % PLOT THEORETICAL ARRIVAL TIME
-            plot([data.SigFlZ(ii).HdrData.A-data.SigFlZ(ii).HdrData.B data.SigFlZ(ii).HdrData.A-data.SigFlZ(ii).HdrData.B]-TimeShift,[ii-data.NminZ+1.5, ii-data.NminZ+2.5],'g');
-                                       
-        else  % ANNEALING NOT RUNNED
-              % add station Name
-              
-            text(Tmin-3.5,ii-data.NminZ+1.5,StaName,...
-              'FontSize',13,'HorizontalAlignment','left','VerticalAlignment','middle');
-                    
-        end
-                
-    end
-            
-end
-        
-% ADD MEAN TRACE
-if (data.Align == 1 && data.selected_comp ==1)  % annealing runned
-    % PLOT MEAN TRACE FOR CLUSTER
-    AddTrace(data.MeanTrace,0,data.SigFlZ(ii).HdrData.DELTA,1);
-    % TIME PICK
-    plot([data.tpick data.tpick],[0.7,1.3],'k','LineWidth',1);
-%    hold on
-    plot([data.PtheoMean data.PtheoMean],[0.7,1.3],'g','LineWidth',1);
-end
-
-xlabel('Time (s)');
-title(['Z  ',num2str(data.NminZ),'-',num2str(data.NmaxZ),'/',num2str(data.Ntraces)]);
-xlim([Tmin-5-0.1,Tmax+3.5+0.1]);
-set(axes1,'yticklabel',[]);
-
-guidata(Anneal_fig,data)
-        
-end
-
-% -------------------------------------------------------------------------
-function DisplayRadial
-        
-axes(axes4);cla;hold on
-
-data = guidata(Anneal_fig);
-        
-% GET CURRENT SELECTION OF TRACES INSIDE CLUSTER
-SelectionR = data.SelectionR;
-        
-% TIME
-Tmax = 0;
-Tmin = 1000;
-        
-% loop over 10 events in cluster.
-for ii = data.NminR:data.NmaxR
-
-    if (data.Align == 1) ;
-      TimeShift = data.residu(ii);
-    else
-      TimeShift = 0;
-    end
-            
-    % STATION NAME
-    StaName = [data.SigFlR(ii).HdrData.KSTNM];
-    [t0,t1,hpl] = PlotOnTrace(data.SigFlR(ii).SeisData,-TimeShift,data.SigFlR(ii).HdrData.DELTA,ii-data.NminR+2);
-    data.DispTraceR(ii) = hpl;
-    Tmax = max(Tmax,t1);
-    Tmin = min(Tmin,t0);
-           
-    % ADD STATION NAME
-    text(Tmin-3.5,ii-data.NminR+1.5,StaName, ...
-        'FontSize',13,'HorizontalAlignment','left','VerticalAlignment','middle');
-            
-    if SelectionR(ii) == 0
-                
-        set(hpl,'Color',[0.8 0.8 0.8]);
-        
-        if (data.Align == 1)  % annealing runned
-            % ADD RADIOBUTTON
-            set(data.rb2(ii),'Visible','On');
-            set(data.rb2(ii),'Value',0);
-        end
-                
-    else %selected
-                
-        if (data.Align == 1) ; % annealing runned
-                    
-            % ADD RADIOBUTTON
-            set(data.rb2(ii),'Visible','On');
-            set(data.rb2(ii),'Value',1);
-            
-            % ADD RESIDUAL AND CORRELATION BETWEEN MEAN TRACE AND
-            % EACH TRACE
-            snr = data.SNR(ii);
-            SNR = num2str(snr,'%4.3f');
-            snr = data.AmpR(ii);
-            SNR = num2str(snr,'%4.3f');
-            text(Tmin-1,ii-data.NminR+1.8,SNR,...
-                'FontSize',10,'HorizontalAlignment','right','VerticalAlignment','middle');
-                    
-            Coef = data.CorrR(ii);
-            COEF = num2str(Coef,'%4.3f');
-            text(Tmin-6.,ii-data.NminR+2,COEF,...
-                'FontSize',10,'HorizontalAlignment','right','VerticalAlignment','middle');
-
-            % PLOT THEORETICAL ARRIVAL TIME
-            plot([data.SigFlR(ii).HdrData.A-data.SigFlR(ii).HdrData.B data.SigFlR(ii).HdrData.A-data.SigFlR(ii).HdrData.B]-TimeShift,[ii-data.NminR+1.5, ii-data.NminR+2.5],'g');
-                                       
-        else  % ANNEALING NOT RUNNED
-            % add station Name
-            text(Tmin-3.5,ii-data.NminR+1.5,StaName,...
-                'FontSize',13,'HorizontalAlignment','left','VerticalAlignment','middle');
-                 
-        end
-                
-    end
-          
-end
-        
-% ADD MEAN TRACE
-if (data.Align == 1 && data.selected_comp == 2)
-    text(Tmin-6.5,1,'R^2',...
-    'FontSize',10,'HorizontalAlignment','right','VerticalAlignment','middle');
-
-    % PLOT MEAN TRACE FOR CLUSTER
-    AddTrace(data.MeanTrace,0,data.SigFlZ(ii).HdrData.DELTA,1);
-    % TIME PICK
-    plot([data.tpick data.tpick],[0.7,1.3],'k','LineWidth',1);
-    plot([data.PtheoMean data.PtheoMean],[0.7,1.3],'g','LineWidth',1);
-end
-        
-xlabel('Time (s)');
-title(['R  ',num2str(data.NminR),'-',num2str(data.NmaxR),'/',num2str(data.Ntraces)]);
-xlim([Tmin-5-0.1,Tmax+3.5+0.1]);
-set(axes4,'yticklabel',[]);
-        
-guidata(Anneal_fig,data)
-       
-end
 
 %----------------------------------------------------------------------------------
-function DisplayTransverse
-        
-axes(axes7);cla;hold on
-
-data = guidata(Anneal_fig);
-        
-% GET CURRENT SELECTION OF TRACES INSIDE CLUSTER
-SelectionT = data.SelectionT;
-        
-% TIME
-Tmax = 0;
-Tmin = 1000;
-        
-% loop over 10 events in cluster.
-for ii = data.NminT:data.NmaxT
-
-    if (data.Align == 1) ;
-      TimeShift = data.residu(ii);
-    else
-      TimeShift = 0;
-    end
-            
-    % STATION NAME
-    StaName = [data.SigFlT(ii).HdrData.KSTNM];
-    [t0,t1,htl] = PlotOnTrace(data.SigFlT(ii).SeisData,-TimeShift,data.SigFlT(ii).HdrData.DELTA,ii-data.NminT+2);
-    data.DispTraceT(ii) = htl;
-    Tmax = max(Tmax,t1);
-    Tmin = min(Tmin,t0);
-           
-    % ADD STATION NAME
-    text(Tmin-3.5,ii-data.NminT+1.5,StaName, ...
-        'FontSize',13,'HorizontalAlignment','left','VerticalAlignment','middle');
-            
-    if SelectionT(ii) == 0
-
-        set(htl,'Color',[0.8 0.8 0.8]);
-        
-        if (data.Align == 1)  % annealing runned
-            % ADD RADIOBUTTON
-            set(data.rb3(ii),'Visible','On');
-            set(data.rb3(ii),'Value',0);
-        end
-                
-    else
-                
-        if (data.Align == 1) ; % annealing runned
-                    
-            % ADD RADIOBUTTON
-            set(data.rb3(ii),'Visible','On');
-            set(data.rb3(ii),'Value',1);
-            
-            % ADD RESIDUAL AND CORRELATION BETWEEN MEAN TRACE AND
-            % EACH TRACE
-            snr = data.SNR(ii);
-            SNR = num2str(snr,'%4.3f');
-            %snr = data.AmpT(ii);
-            %SNR = num2str(snr,'%4.3f');
-            %text(Tmin-1,ii-data.NminT+1.8,SNR,...
-            %    'FontSize',10,'HorizontalAlignment','right','VerticalAlignment','middle');
-                    
-            %Coef = data.CorrT(ii);
-            %COEF = num2str(Coef,'%4.3f');
-            %text(Tmin-6.,ii-data.NminT+2,COEF,...
-            %    'FontSize',10,'HorizontalAlignment','right','VerticalAlignment','middle');
-            %text(Tmin-6.5,1,'R^2',...
-            %    'FontSize',10,'HorizontalAlignment','right','VerticalAlignment','middle');
-
-            % PLOT THEORETICAL ARRIVAL TIME
-            plot([data.SigFlT(ii).HdrData.A-data.SigFlT(ii).HdrData.B data.SigFlT(ii).HdrData.A-data.SigFlT(ii).HdrData.B]-TimeShift,[ii-data.NminT+1.5, ii-data.NminT+2.5],'g');
-                                       
-        else  % ANNEALING NOT RUNNED
-            % add station Name
-            text(Tmin-3.5,ii-data.NminT+1.5,StaName,...
-                'FontSize',13,'HorizontalAlignment','left','VerticalAlignment','middle');
-                 
-        end 
-    end
-          
-end
-        
-% ADD MEAN TRACE
-if (data.Align == 1 && data.selected_comp == 3)  % annealing runned
-    % PLOT MEAN TRACE FOR CLUSTER
-    AddTrace(data.MeanTrace,0,data.SigFlT(ii).HdrData.DELTA,1);
-    % TIME PICK
-    plot([data.tpick data.tpick],[0.7,1.3],'k','LineWidth',1);
-    plot([data.PtheoMean data.PtheoMean],[0.7,1.3],'g','LineWidth',1);
-end
-        
-xlabel('Time (s)');
-title(['T  ',num2str(data.NminT),'-',num2str(data.NmaxT),'/',num2str(data.Ntraces)]);
-xlim([Tmin-5-0.1,Tmax+3.5+0.1]);
-set(axes7,'yticklabel',[]);
-        
-guidata(Anneal_fig,data)
-       
-end
-
-
-%----------------------------------------------------------------------------------
-% --- Display Map of Time Residuals
-    function Display_Time_Residuals
-        
-        % DISPLAY RESIDUALS ON MAP
-        
-        data = guidata(Anneal_fig);
-
-        Ntraces = data.Ntraces;
-
-        switch data.selected_comp
-            case 1
-                Selection = data.SelectionZ;
-                SigFl = data.SigFlZ;
-            case 2
-                Selection = data.SelectionR;
-                SigFl = data.SigFlR;
-            case 3
-                Selection = data.SelectionT;
-                SigFl = data.SigFlT;
-        end
-        
-        % GET CURRENT SELECTION OF TRACES INSIDE CLUSTER
-        
-        % COLORS RO DISPLAY RESIDUALS
-        couleur = flipud(RtoB(100));
-        
-        for i = 1:Ntraces
-            if Selection(i) == 1
-                residu(i) = data.residu(i);
-            else
-                residu(i) = 999.;
-            end
-        end
-        [Couleurs,rr] = CalculeCouleur_dt(residu,couleur);
-
-        % CHOOSE AXES
-        whereToPlot = get(radiobuttonPlotOnMain,'Value');
-        if whereToPlot == 1 %plot on main panel
-            axes(axes2);cla;hold on
-            axtoolbar(axes2,{'datacursor','zoomin','zoomout','restoreview'});
-            
-        else
-            map(2,1)
-        end
-        
-        m_proj('lambert','lon',[data.lonmin-0.5 data.lonmax+0.5],'lat',[data.latmin-0.5 data.latmax+0.5]);
-        m_grid('linestyle','none','tickdir','out','linewidth',1);
-
-        count = 0;
-        for i = 1:Ntraces      
-            count = count + 1 ;
-            if Selection(i) == 1
-                % PLOT RESIDUALS AT STATION LOCATIONS
-                Sta(count,1) = SigFl(i).HdrData.STLO;
-                Sta(count,2) = SigFl(i).HdrData.STLA;
-                Sta(count,3) = data.residu(i);
-                staname = SigFl(i).HdrData.KSTNM; %convertCharsToStrings(SigFl(i).HdrData.KSTNM);
-                m_plot(Sta(count,1),Sta(count,2),'o','MarkerFaceColor',couleur(Couleurs(i),:),'Color',couleur(Couleurs(i),:),...
-                    'tag',sprintf('Sta: %s \nRes: %f\nRow: %d', staname, Sta(count,3), count));
-            end
-        end
-        datacursormode on
-        dcm = datacursormode(gcf);
-        set(dcm,'UpdateFcn',@myupdatefcn);
-        
-        % AXES TO PLOT THE COLOR SCALE
-        if whereToPlot == 1   % on main panel
-            axes(axes3);cla;hold on
-        else
-            map(2,2)
-        end
-        
-        for i = 1:5
-            plot(0.95*i-1.8,-3,'o','MarkerFaceColor',couleur(rr(i,2),:));
-            if rr(i,1) > 0.
-                Notation = sprintf('+%4.3f',rr(i,1));
-            else
-                Notation = sprintf('%5.3f',rr(i,1));
-            end
-            text(0.95*i-1.7,-3,Notation,'FontSize',8);
-        end
-        xlim([-1 3.5]);
-        ylim([-7  1]);
-        
-        guidata(Anneal_fig,data)
-
-    end
-
-%----------------------------------------------------------------------------------
-% --- Display Map of Amplitude Residuals
-    function Display_Amplitude_Residuals
-        
-    % DISPLAY AMPLITUDE RESIDUALS ON MAP
-        
+% Add a new initialization function at the beginning of the Annealing function
+function InitializeResidualMaps
+    % This function is called once during application initialization to pre-generate base maps
+    
     data = guidata(Anneal_fig);
-        
-    % GET CLUSTER INDEX
-    ic = (get(listbox1,'value'));
-       
+    
+    % Initialize map base and scatter plot handles
+    data.base_map_created = false;  % Flag indicating if the base map has been created
+    data.station_markers_time = [];  % Station markers for time residuals
+    data.station_markers_amp = [];   % Station markers for amplitude residuals
+    
+    % Store color table for reuse
+    data.color_table = flipud(RtoB(100));
+    
+    guidata(Anneal_fig, data);
+end
+
+% Replace the original Display_Time_Residuals function
+function Display_Time_Residuals
+    data = guidata(Anneal_fig);
+    
+    % Check if color_table exists, if not create it
+    if ~isfield(data, 'color_table')
+        data.color_table = flipud(RtoB(100));
+        guidata(Anneal_fig, data);
+    end
+    
     Ntraces = data.Ntraces;
     
-    % GET CURRENT SELECTION OF TRACES INSIDE CLUSTER
+    % Select component data to use
+    switch data.selected_comp
+        case 1
+            Selection = data.SelectionZ;
+            SigFl = data.SigFlZ;
+        case 2
+            Selection = data.SelectionR;
+            SigFl = data.SigFlR;
+        case 3
+            Selection = data.SelectionT;
+            SigFl = data.SigFlT;
+    end
+    
+    % Calculate residuals using logical indexing instead of loops
+    residu = ones(1, Ntraces) * 999;  % Default value
+    residu(Selection == 1) = data.residu(Selection == 1);
+    
+    % Calculate color mapping
+    [Couleurs, rr] = CalculeCouleur_dt(residu, data.color_table);
+    
+    % Determine where to plot
+    whereToPlot = get(radiobuttonPlotOnMain, 'Value');
+    if whereToPlot == 1 % Plot on main panel
+        map_axes = axes2;
+        colorbar_axes = axes3;
+    else
+        map_axes = subplot(2, 1, 1);
+        colorbar_axes = subplot(2, 1, 2);
+    end
+    
+    % Clear previous plot
+    axes(map_axes); 
+    
+    % Check if base map needs to be created or updated
+    if ~isfield(data, 'base_map_created') || ~data.base_map_created || ~isfield(data, 'station_markers_time') || isempty(data.station_markers_time)
+        % Clear and draw new base map
+        cla;
+        hold on;
+        
+        % Set map projection
+        m_proj('lambert', 'lon', [data.lonmin-0.5 data.lonmax+0.5], 'lat', [data.latmin-0.5 data.latmax+0.5]);
+        m_grid('linestyle', 'none', 'tickdir', 'out', 'linewidth', 1);
+        
+        % Create scatter plot objects for stations
+        data.station_markers_time = gobjects(Ntraces, 1);
+        
+        % Store object handles for future updates
+        data.base_map_created = true;
+    else
+        % Keep existing base map, only update markers
+        hold on;
+    end
+    
+    % Add toolbar (only if not already added)
+    if ~isfield(data, 'toolbar_added') || ~data.toolbar_added
+        axtoolbar(map_axes, {'datacursor', 'zoomin', 'zoomout', 'restoreview'});
+        data.toolbar_added = true;
+    end
+    
+    % Update or create station markers
+    valid_stations = find(Selection == 1);
+    count = 0;
+    
+    for i = valid_stations
+        count = count + 1;
+        % Get station coordinates
+        lon = SigFl(i).HdrData.STLO;
+        lat = SigFl(i).HdrData.STLA;
+        residual = data.residu(i);
+        staname = SigFl(i).HdrData.KSTNM;
+        color = data.color_table(Couleurs(i), :);
+        
+        % Convert geographic coordinates to m_map projection coordinates
+        [x, y] = m_ll2xy(lon, lat);
+        
+        % If station marker already exists, update it
+        if ishandle(data.station_markers_time(i)) && ~isempty(data.station_markers_time(i))
+            % Update existing marker position and color
+            set(data.station_markers_time(i), 'XData', x, 'YData', y, ...
+                'MarkerFaceColor', color, 'MarkerEdgeColor', color);
+        else
+            % Create a new marker
+            data.station_markers_time(i) = plot(x, y, 'o', 'MarkerFaceColor', color, ...
+                'MarkerEdgeColor', color, 'tag', sprintf('Sta: %s \nRes: %f\nRow: %d', staname, residual, count));
+        end
+    end
+    
+    % Hide station markers not in selection
+    for i = 1:Ntraces
+        if ~ismember(i, valid_stations) && ishandle(data.station_markers_time(i)) && ~isempty(data.station_markers_time(i))
+            set(data.station_markers_time(i), 'Visible', 'off');
+        elseif ismember(i, valid_stations) && ishandle(data.station_markers_time(i)) && ~isempty(data.station_markers_time(i))
+            set(data.station_markers_time(i), 'Visible', 'on');
+        end
+    end
+    
+    % Set data cursor mode
+    datacursormode on
+    dcm = datacursormode(gcf);
+    set(dcm, 'UpdateFcn', @myupdatefcn);
+    
+    % Draw color scale
+    axes(colorbar_axes); cla; hold on;
+    
+    % Use pre-calculated color values to draw scale
+    for i = 1:5
+        plot(0.95*i-1.8, -3, 'o', 'MarkerFaceColor', data.color_table(rr(i,2), :));
+        
+        if rr(i,1) > 0
+            Notation = sprintf('+%4.3f', rr(i,1));
+        else
+            Notation = sprintf('%5.3f', rr(i,1));
+        end
+        text(0.95*i-1.7, -3, Notation, 'FontSize', 8);
+    end
+    
+    xlim([-1 3.5]);
+    ylim([-7 1]);
+    
+    guidata(Anneal_fig, data);
+end
+
+% Similarly optimize amplitude residuals display
+function Display_Amplitude_Residuals
+    data = guidata(Anneal_fig);
+    
+    % Check if color_table exists, if not create it
+    if ~isfield(data, 'color_table')
+        data.color_table = flipud(RtoB(100));
+        guidata(Anneal_fig, data);
+    end
+    
+    Ntraces = data.Ntraces;
+    
+    % Select component data to use
     switch data.selected_comp
         case 1
             Selection = data.SelectionZ;
@@ -2764,124 +2527,159 @@ end
             SigFl = data.SigFlT;
             Amp = data.AmpZ;
     end
+    
+    % Use logical indexing to get residuals
+    residu = ones(1, Ntraces) * 999;  % Default value
+    residu(Selection == 1) = Amp(Selection == 1);
+    
+    % Calculate colors
+    [Couleurs, rr] = CalculeCouleur_amp(residu, data.color_table);
+    
+    % Determine where to plot
+    whereToPlot = get(radiobuttonPlotOnMain, 'Value');
+    if whereToPlot == 1 % Plot on main panel
+        map_axes = axes5;
+        colorbar_axes = axes6;
+    else
+        map_axes = subplot(3, 1, 1);
+        colorbar_axes = subplot(3, 1, 2);
+    end
+    
+    % Switch to amplitude residuals axis
+    axes(map_axes);
+    
+    % Check if base map needs to be created or updated
+    if ~isfield(data, 'base_map_created') || ~data.base_map_created || ~isfield(data, 'station_markers_amp') || isempty(data.station_markers_amp)
+        % Clear and draw new base map
+        cla;
+        hold on;
         
-    % COLORS TO DISPLAY RESIDUALS
-    couleur = flipud(RtoB(100));
+        % Set map projection
+        m_proj('lambert', 'lon', [data.lonmin-0.5 data.lonmax+0.5], 'lat', [data.latmin-0.5 data.latmax+0.5]);
+        m_grid('linestyle', 'none', 'tickdir', 'out', 'linewidth', 1);
+        
+        % Create scatter plot objects for stations
+        data.station_markers_amp = gobjects(Ntraces, 1);
+    else
+        % Keep existing base map, only update markers
+        hold on;
+    end
+    
+    % Add toolbar (only if not already added)
+    if ~isfield(data, 'toolbar_added_amp') || ~data.toolbar_added_amp
+        axtoolbar(map_axes, {'datacursor', 'zoomin', 'zoomout', 'restoreview'});
+        data.toolbar_added_amp = true;
+    end
+    
+    % Update or create station markers
+    valid_stations = find(Selection == 1);
+    count = 0;
+    
+    for i = valid_stations
+        count = count + 1;
+        % Get station coordinates
+        lon = SigFl(i).HdrData.STLO;
+        lat = SigFl(i).HdrData.STLA;
+        amplitude = residu(i);
+        staname = SigFl(i).HdrData.KSTNM;
+        color = data.color_table(Couleurs(i), :);
+        
+        % Convert geographic coordinates to m_map projection coordinates
+        [x, y] = m_ll2xy(lon, lat);
+        
+        % If station marker already exists, update it
+        if ishandle(data.station_markers_amp(i)) && ~isempty(data.station_markers_amp(i))
+            % Update existing marker position and color
+            set(data.station_markers_amp(i), 'XData', x, 'YData', y, ...
+                'MarkerFaceColor', color, 'MarkerEdgeColor', color);
+        else
+            % Create a new marker
+            data.station_markers_amp(i) = plot(x, y, 'o', 'MarkerFaceColor', color, ...
+                'MarkerEdgeColor', color, 'tag', sprintf('Sta: %s \nRes: %f\nRow: %d', staname, amplitude, count));
+        end
+    end
+    
+    % Hide station markers not in selection
     for i = 1:Ntraces
-        if Selection(i) == 1
-            residu(i) = Amp(i);
-        else
-            residu(i) = 999.;
+        if ~ismember(i, valid_stations) && ishandle(data.station_markers_amp(i)) && ~isempty(data.station_markers_amp(i))
+            set(data.station_markers_amp(i), 'Visible', 'off');
+        elseif ismember(i, valid_stations) && ishandle(data.station_markers_amp(i)) && ~isempty(data.station_markers_amp(i))
+            set(data.station_markers_amp(i), 'Visible', 'on');
         end
     end
-%    [residu(1:Ntraces)]
-    [Couleurs,rr] = CalculeCouleur_amp(residu,couleur);
-        
-    % CHOOSE AXES
-        whereToPlot = get(radiobuttonPlotOnMain,'Value');
-        if whereToPlot == 1 %plot on main panel
-            axes(axes5);cla;hold on
-axtoolbar(axes5,{'datacursor','zoomin','zoomout','restoreview'});
-        else
-            map(3,1)
-        end
     
-    m_proj('lambert','lon',[data.lonmin-0.5 data.lonmax+0.5],'lat',[data.latmin-0.5 data.latmax+0.5]);
-    m_grid('linestyle','none','tickdir','out','linewidth',1);
+    % Set data cursor mode
+    datacursormode on
+    dcm = datacursormode(gcf);
+    set(dcm, 'UpdateFcn', @myupdatefcn);
     
-    count=0;
-    for i = 1:Ntraces      
-        count = count + 1 ;
-        if Selection(i) == 1
-            % PLOT RESIDUALS AT STATION LOCATIONS
-            Sta(count,1) = SigFl(i).HdrData.STLO;
-            Sta(count,2) = SigFl(i).HdrData.STLA;
-            Sta(count,3) = residu(i);
-            staname = SigFl(i).HdrData.KSTNM; %convertCharsToStrings(SigFl(i).HdrData.KSTNM);
-            m_plot(Sta(count,1),Sta(count,2),'o','MarkerFaceColor',couleur(Couleurs(i),:),'Color',couleur(Couleurs(i),:),...
-                'tag',sprintf('Sta: %s \nRes: %f\nRow: %d', staname, Sta(count,3), count));
-        end
-    end
-        datacursormode on
-        dcm = datacursormode(gcf);
-        set(dcm,'UpdateFcn',@myupdatefcn)
-        
-    % AXES TO PLOT THE COLOR SCALE
-        if whereToPlot == 1 %plot on main panel
-            axes(axes6);cla;hold on
-        else
-            map(3,2)
-        end    
-        
+    % Draw color scale
+    axes(colorbar_axes); cla; hold on;
+    
+    % Use pre-calculated color values to draw scale
     for i = 1:5
-        plot(0.95*i-1.8,-3,'o','MarkerFaceColor',couleur(rr(i,2),:));
-        if rr(i,1) > 0.
-            Notation = sprintf('+%4.3f',rr(i,1));
+        plot(0.95*i-1.8, -3, 'o', 'MarkerFaceColor', data.color_table(rr(i,2), :));
+        
+        if rr(i,1) > 0
+            Notation = sprintf('+%4.3f', rr(i,1));
         else
-            Notation = sprintf('%5.3f',rr(i,1));
+            Notation = sprintf('%5.3f', rr(i,1));
         end
-        text(0.95*i-1.7,-3,Notation,'FontSize',8);
+        text(0.95*i-1.7, -3, Notation, 'FontSize', 8);
     end
+    
     xlim([-1 3.5]);
-    ylim([-7  1]);
-        
-    guidata(Anneal_fig,data)
-        
-    end
+    ylim([-7 1]);
+    
+    guidata(Anneal_fig, data);
+end
 
 %----------------------------------------------------------------------------------
 function UpdateDisplayZ(hObject, eventdata)
+    data = guidata(Anneal_fig);
+    
+    Ntraces = data.Ntraces;
+    
+    itrace = find(gco == data.rb);
+    
+    % UPDATE SELECTION
+    iselect = get(gco, 'Value');
+    if iselect == 0
+        data.SelectionZ(itrace) = 0;
         
-data = guidata(Anneal_fig);
+        % Instead of hiding the trace, change its color to gray
+        % Make sure the trace is still visible but shown as deselected
+        if isfield(data, 'DispTraceZ') && numel(data.DispTraceZ) >= itrace && ishandle(data.DispTraceZ(itrace))
+            set(data.DispTraceZ(itrace), 'Color', [0.8 0.8 0.8],'Visible', 'on');
+        end
+    elseif iselect == 1
+        data.SelectionZ(itrace) = 1;
         
-Ntraces = data.Ntraces;
-        
-itrace = find(gco == data.rb);
-        
-% UPDATE SELECTION
-iselect = get(gco,'Value');
-if iselect == 0
-    data.SelectionZ(itrace) = 0;
-elseif iselect == 1
-    data.SelectionZ(itrace) = 1;
+        % Restore color when selected
+        if isfield(data, 'DispTraceZ') && numel(data.DispTraceZ) >= itrace && ishandle(data.DispTraceZ(itrace))
+            set(data.DispTraceZ(itrace), 'Color', 'b','Visible', 'on');
+        end
+    end
+    
+    % UPDATE DISPLAY
+    guidata(Anneal_fig, data);
+    
+    UpdateMeanTrace;
+    
+    guidata(Anneal_fig, data);
+    
+    DisplayTraces;
+    
+    guidata(Anneal_fig, data);
+    
+    Display_Time_Residuals;
+    
+    guidata(Anneal_fig, data);
+    Display_Amplitude_Residuals;
+    
+    guidata(Anneal_fig, data);
 end
 
-% UPDATE DISPLAY
-guidata(Anneal_fig,data)
-
-UpdateMeanTrace;
-
-guidata(Anneal_fig,data)
-     
-DisplayTraces;
-
-guidata(Anneal_fig,data)
-
-Display_Time_Residuals;
-
-guidata(Anneal_fig,data)
-Display_Amplitude_Residuals;
-                       
-%if data.Align == 1; % annealing runned
-%    for ii = data.NminZ:data.NmaxZ
-%        [ii data.rb(ii).Value]
-%        if data.rb(ii) == 0
-%          [t0,t1,hpl] = PlotOnTrace2(data.SigFlR(ii).SeisData,-TimeShift,data.SigFlR(ii).HdrData.DELTA,ii-data.NminR+2,'b');
-%          set(hpl,'Color','Blue');
-%        end
-%        set(data.rb(ii),'Visible','off');
-%        set(data.rb(ii),'Enable','off');
-%        set(data.rb(ii),'Interruptible','off');
-%    end
-%end
-
-guidata(Anneal_fig,data)
-        
-% UPDATE DISPLAY
-%guidata(Anneal_fig,data)
-        
-end
-       
 %----------------------------------------------------------------------------------
 function UpdateDisplayR(hObject, eventdata)
         
@@ -3049,24 +2847,14 @@ data.TimeDelay = delay;
 data.Stack = Stack;
 data.MeanTrace = data.Stack;
 
-for i = 1:Ntraces
-    % Update travel time residues
-    if (Selection(i) == 1)
-        res(i) = data.tpick-data.TimeDelay(i)-Tmin;
-    else
-        res(i) = 0;
-    end
-end
+res = zeros(1, Ntraces);
+res(Selection == 1) = data.tpick - data.TimeDelay(Selection == 1) - Tmin;
+
 
 data.ResMean = sum(res)./NbSelected;
             
-for i = 1:Ntraces
-    if (Selection(i) == 1)
-        data.residu(i) = res(i)-mean(res);
-    else
-        data.residu(i) = 999.;
-    end
-end
+data.residu = ones(1, Ntraces) * 999;
+data.residu(Selection == 1) = res(Selection == 1) - mean(res(Selection == 1));
 
 TimeMean = (0:dt:(length(data.MeanTrace)-1)*dt)';
     
@@ -3141,159 +2929,518 @@ guidata(Anneal_fig,data)
 %guidata(Anneal_fig,data)
 
 end
-%----------------------------------------------------------------------------------
-function Save_Results_Callback(object,event)
-        
-data = guidata(Anneal_fig);
+    function Save_Results_Callback(object, event)
+    % This function saves the analysis results to various output files
+    % Modified to properly handle phase-dependent weight settings
+    
+    data = guidata(Anneal_fig);
 
-if (data.Align == 0) ; return; end
+    % Return if alignment has not been performed
+    if (data.Align == 0)
+        return;
+    end
 
-Seldir = strcat(data.DirSac,'/Selection');
-commande = ['mkdir ',Seldir];
-%commande
-if (exist(Seldir,'dir') == 0)
-  system(commande);
-end
+    % Create output directory if it doesn't exist
+    Seldir = fullfile(data.DirSac, 'Selection');
+    if ~exist(Seldir, 'dir')
+        mkdir(Seldir);
+    end
 
-fid = fopen([data.DirSac,'/Selection/Residus_P.txt'],'w');
-%LINE = ('Station  slat    slon    selev    evlat  evlon    evdep distance azimuth phase ttheo   tres   tshift coherence AmpZ');
-LINE = ('Station  slat    slon    selev    evlat  evlon    evdep distance slowness azimuth      phase ttheo   tres cor_elev  tshift coherence AmpZ');
-fprintf(fid,'%s\n',LINE);
+    % Save residuals file
+    fid = fopen(fullfile(Seldir, 'Residus_P.txt'), 'w');
+    LINE = ('Station  slat    slon    selev    evlat  evlon    evdep distance slowness azimuth      phase ttheo   tres cor_elev  tshift coherence AmpZ');
+    fprintf(fid, '%s\n', LINE);
 
-fid2 = fopen([data.DirSac,'/Selection/Info.txt'],'w');
+    % Save filter and time window information
+    fid2 = fopen(fullfile(Seldir, 'Info.txt'), 'w');
+    fprintf(fid2, '%s\n', '% FILTER');
+    
+    Filter = get(radiobutton2, 'Value');
+    if Filter == 0
+        fprintf(fid2, '%s\n', 'WWSSN_SP');
+    else
+        fprintf(fid2, '%s\n', 'BUTTERWORTH');
+        fprintf(fid2, '%s\n', '% FREQ MIN');
+        FrqMin = str2double(get(edit3, 'String'));
+        fprintf(fid2, '%5.3f\n', FrqMin);
+        fprintf(fid2, '%s\n', '% FREQ MAX');
+        FrqMax = str2double(get(edit4, 'String'));
+        fprintf(fid2, '%5.3f\n', FrqMax);
+    end
+    
+    fprintf(fid2, '%s\n', '% TIME BEFORE ARRIVAL');
+    Tmin = str2double(get(edit1, 'String'));
+    fprintf(fid2, '%3.0f\n', Tmin);
+    fprintf(fid2, '%s\n', '% TIME AFTER ARRIVAL');
+    Tmax = str2double(get(edit2, 'String'));
+    fprintf(fid2, '%3.0f\n', Tmax);
+    fclose(fid2);
 
-LINE = sprintf('%s','% FILTER');
-fprintf(fid2,'%s\n',LINE);
-Filter = get(radiobutton2,'Value');
-if Filter == 0
-  LINE = sprintf('%s','WWSSN_SP');
-  fprintf(fid2,'%s\n',LINE);
-else
-  LINE = sprintf('%s','BUTTERWORTH');
-  fprintf(fid2,'%s\n',LINE);
-  LINE = sprintf('%s','% FREQ MIN');
-  FrqMin = str2double(get(edit3,'String'));
-  LINE = sprintf('%5.3f',FrqMin);
-  fprintf(fid2,'%s\n',LINE);
-  LINE = sprintf('%s','% FREQ MAX');
-  FrqMax = str2double(get(edit4,'String'));
-  LINE = sprintf('%5.3f',FrqMax);
-  fprintf(fid2,'%s\n',LINE);
-end
-LINE = sprintf('%s','% TIME BEFORE ARRIVAL');
-fprintf(fid2,'%s\n',LINE);
-Tmin = str2double(get(edit1,'String'));
-LINE = sprintf('%3.0f',Tmin);
-fprintf(fid2,'%s\n',LINE);
-LINE = sprintf('%s','% TIME AFTER ARRIVAL');
-fprintf(fid2,'%s\n',LINE);
-Tmax = str2double(get(edit2,'String'));
-fprintf(fid2,'%3.0f\n',Tmax);
-fclose(fid2);
+    % Constants for topographic correction
+    rsurf = 6371;
+    deg2km = 2*pi*rsurf/360;
+    vp = 5.0;
 
-rsurf = 6371;
-deg2km = 2*pi*rsurf/360;
-vp = 5.;
+    % Loop through traces and save selected ones to residuals file
+    for ii = 1:data.Ntraces
+        if data.SelectionZ(ii) == 1
+            % Get station information
+            StaName = data.SigFlZ(ii).HdrData.KSTNM;
+            
+            % Residual information
+            TimeShift = data.TimeDelay(ii);
+            residual = data.residu(ii);
+            
+            % Coherency information
+            coherency = data.CoefCor(ii);
+            corrR = data.CorrR(ii);
+            AmpZ = data.AmpZ(ii);
+            AmpR = data.AmpR(ii);
+            
+            % Station coordinates
+            STLA = data.SigFlZ(ii).HdrData.STLA;
+            STLO = data.SigFlZ(ii).HdrData.STLO;
+            STEL = data.SigFlZ(ii).HdrData.STEL;
+            
+            % Event coordinates
+            EVLA = data.SigFlZ(ii).HdrData.EVLA;
+            EVLO = data.SigFlZ(ii).HdrData.EVLO;
+            EVDP = data.SigFlZ(ii).HdrData.EVDP;
+            
+            % Theoretical travel time
+            theo = data.SigInZ(ii).HdrData.A;
+            
+            % Distance
+            dist = data.SigInZ(ii).HdrData.GCARC;
+            
+            % Azimuth
+            azi = data.SigInZ(ii).HdrData.BAZ;
+            
+            % Topographic correction
+            pp = data.slowness(ii);
+            pp = pp/deg2km;
+            cosi = sqrt(1-(pp*vp)^2);
+            hcor = STEL/1000/vp*cosi;
+            
+            % Format and write line to file
+            LINE = sprintf('%-6s %7.3f %7.3f %5.0f    %7.3f %7.3f %6.1f %7.3f %7.3f %6.1f %-6s %7.2f  %5.2f  %5.2f %5.2f %6.3f %5.3f', ...
+                StaName, STLA, STLO, STEL, EVLA, EVLO, EVDP, dist, data.slowness(ii), azi, data.Phase, theo, residual, hcor, TimeShift, coherency, AmpZ);
+            fprintf(fid, '%s\n', LINE);
+        end
+    end
+    fclose(fid);
 
-for ii = 1:data.Ntraces
+    % Save radial component selection
+    fid = fopen(fullfile(Seldir, 'Selection_R.txt'), 'w');
+    for ii = 1:data.Ntraces
+        if data.SelectionR(ii) == 1
+            % Get station file name
+            SacFile = char(data.SacFilesR(ii));
+            I = strfind(SacFile, '_');
+            if ~isempty(I) && length(I) >= 2
+                Trace = SacFile(1:I(2)-1);
+                RF = strcat(Trace, '_BHR.SAC');
+                
+                LINE = sprintf('%-30s %6.3f %6.3f', RF, data.CorrR(ii), data.AmpR(ii));
+                fprintf(fid, '%s\n', LINE);
+            end
+        end
+    end
+    fclose(fid);
 
-  if data.SelectionZ(ii) == 1
+    % Save STATIONS file with selected stations
+    fid = fopen(fullfile(Seldir, 'STATIONS'), 'w');
+    for ii = 1:data.Ntraces
+        if data.SelectionZ(ii) == 1 || data.SelectionR(ii) == 1
+            StaName = data.SigFlZ(ii).HdrData.KSTNM;
+            StaNetwk = data.SigFlZ(ii).HdrData.KNETWK;
+            STLA = data.SigFlZ(ii).HdrData.STLA;
+            STLO = data.SigFlZ(ii).HdrData.STLO;
+            
+            LINE = sprintf('%-5s %-3s %7.4f %7.4f 0.0 0.0', StaName, StaNetwk, STLA, STLO);
+            fprintf(fid, '%s\n', LINE);
+        end
+    end
+    fclose(fid);
 
-    % STATION NAME
-    StaName = data.SigFlZ(ii).HdrData.KSTNM;
-
-    % RESIDUAL
-    TimeShift = data.TimeDelay(ii);
-    residual = data.residu(ii);
-
-    % COHERENCY
-    coherency = data.CoefCor(ii);
-    corrR = data.CorrR(ii);
-    AmpZ = data.AmpZ(ii);
-    AmpR = data.AmpR(ii);
-
-    % STATION COORDINATES
-    STLA = data.SigFlZ(ii).HdrData.STLA;
-    STLO = data.SigFlZ(ii).HdrData.STLO;
-    STEL = data.SigFlZ(ii).HdrData.STEL;
-
-    % EVENT COORDINATES
-    EVLA = data.SigFlZ(ii).HdrData.EVLA;
-    EVLO = data.SigFlZ(ii).HdrData.EVLO;
-    EVDP = data.SigFlZ(ii).HdrData.EVDP;
-
-    % THEORETICAL TRAVEL TIME
-    theo = data.SigInZ(ii).HdrData.A;
-
-    % DISTANCE
-    dist = data.SigInZ(ii).HdrData.GCARC;
-
-    % AZIMUTH
-    azi = data.SigInZ(ii).HdrData.BAZ;
-
-    % CORRECTION TOPO
-    pp = data.slowness(ii);
-    pp = pp/deg2km;
-    cosi = sqrt(1.-(pp*vp)^2);
-    hcor = STEL/1000./vp*cosi;
-
-    LINE = sprintf('%-6s %7.3f %7.3f %5.0f    %7.3f %7.3f %6.1f %7.3f %7.3f %6.1f %-6s %7.2f  %5.2f  %5.2f %5.2f %6.3f %5.3f',...
-    StaName,STLA,STLO,STEL,EVLA,EVLO,EVDP,dist,data.slowness(ii),azi,data.Phase,theo,residual,hcor,TimeShift,coherency,AmpZ);
-%    LINE = sprintf('%-6s %7.3f %7.3f %5.0f    %7.3f %7.3f %6.1f %7.3f %6.1f %-6s %7.2f  %5.2f  %5.2f %6.3f %5.3f',...
-%    StaName,STLA,STLO,STEL,EVLA,EVLO,EVDP,dist,azi,data.Phase,theo,residual,TimeShift,coherency,AmpZ);
-%    LINE = sprintf('%-6s %7.3f %7.3f %10.1f    %7.3f %7.3f %6.1f %7.3f %6.1f  %-6s  %15.5f  %10.5f  %6.3f %6.3f',...
-%    StaName,STLA,STLO,STEL,EVLA,EVLO,EVDP,dist,azi,data.Phase,theo,residual,TimeShift,coherency);
-    fprintf(fid,'%s\n',LINE);
-
-  end
-end
-fclose(fid);
-
-fid = fopen([data.DirSac,'/Selection/Selection_R.txt'],'w');
-for ii = 1:data.Ntraces
-  if data.SelectionR(ii) == 1
-    % STATION NAME
-    SacFile = char(data.SacFilesR(ii));
-    I = findstr('_',SacFile);
-    Trace = SacFile(1:I(2)-1);
-    RF = strcat(Trace,'_BHR.SAC');
-
-    LINE = sprintf('%-30s %6.3f %6.3f',RF,data.CorrR(ii),data.AmpR(ii));
-    fprintf(fid,'%s\n',LINE);
-  end
-end
-fclose(fid);
-
-fid = fopen([data.DirSac,'/Selection/STATIONS'],'w');
-for ii = 1:data.Ntraces
-    if data.SelectionZ(ii) == 1 || data.SelectionR(ii) == 1
+    % Save STATIONS_weight file with phase-dependent weights
+    fid = fopen(fullfile(Seldir, 'STATIONS_weight'), 'w');
+    for ii = 1:data.Ntraces
+        weight = [0, 0, 0];
         StaName = data.SigFlZ(ii).HdrData.KSTNM;
-        StaNetwk = data.SigFlZ(ii).HdrData.KNETWK;
-        STLA = data.SigFlZ(ii).HdrData.STLA;
-        STLO = data.SigFlZ(ii).HdrData.STLO;
-
-        LINE = sprintf('%-5s %-3s %7.4f %7.4f 0.0 0.0',StaName, StaNetwk, STLA, STLO);
-        fprintf(fid,'%s\n',LINE);
+        
+        % Set weights based on phase type
+        % Column Order: R=1, T=2, Z=3 (RTZ order)
+        if strcmp(data.Phase, 'P') || strncmp(data.Phase, 'P', 1) || ...
+           strcmp(data.Phase, 'PKP') || strcmp(data.Phase, 'PKIKP') || strcmp(data.Phase, 'Pdiff')
+            % For P-type phases: use Z and R components (columns 3 and 1)
+            if data.SelectionZ(ii) == 1
+                weight(3) = 1;  % Z component (column 3)
+            end
+            
+            if data.SelectionR(ii) == 1
+                weight(1) = 1;  % R component (column 1)
+            end
+            % T component (column 2) is set to 0
+        elseif strcmp(data.Phase, 'S') || strncmp(data.Phase, 'S', 1)
+            % For S-type phases: use T component only (column 2)
+            if data.SelectionT(ii) == 1
+                weight(2) = 1;  % T component (column 2)
+            end
+            % R and Z components (columns 1 and 3) are set to 0
+        else
+            % For other phases, use original logic
+            if data.SelectionZ(ii) == 1
+                weight(3) = 1;  % Z component (column 3)
+            end
+            
+            if data.SelectionR(ii) == 1
+                weight(1:2) = [1, 1];  % R and T components (columns 1 and 2)
+            end
+        end
+        
+        LINE = sprintf('%-s %1d %1d %1d', StaName, weight);
+        fprintf(fid, '%s\n', LINE);
     end
-end
-
-fid = fopen([data.DirSac,'/Selection/STATIONS_weight'],'w');
-for ii = 1:data.Ntraces
-    weight = [0,0,0];
-    StaName = data.SigFlZ(ii).HdrData.KSTNM;
-
-    if data.SelectionZ(ii) == 1
-        weight(3) = 1;
+    fclose(fid);
+    
+    % Inform the user that the files have been saved
+    disp(['Results saved to ', Seldir]);
+end%----------------------------------------------------------------------------% 
+% Initialize function to create and initialize waveform display objects at the beginning of the program
+function InitializeWaveformDisplays
+    data = guidata(Anneal_fig);
+    
+    % Check if already initialized
+    if isfield(data, 'waveform_initialized') && data.waveform_initialized
+        return;
     end
     
-    if data.SelectionR(ii) == 1
-        weight(1:2) = [1,1];
-    end
+    % Pre-create graphics object handle arrays
+    data.Z_trace_handles = cell(1, 100);  % Assume maximum of 100 traces
+    data.Z_theo_lines = cell(1, 100);
+    data.Z_text_handles = struct('station', cell(1, 100), 'residual', cell(1, 100), 'correlation', cell(1, 100));
     
-    LINE = sprintf('%-s %1d %1d %1d',StaName, weight);
-    fprintf(fid,'%s\n',LINE);
+    data.R_trace_handles = cell(1, 100);
+    data.R_theo_lines = cell(1, 100);
+    data.R_text_handles = struct('station', cell(1, 100), 'snr', cell(1, 100), 'correlation', cell(1, 100));
+    
+    data.T_trace_handles = cell(1, 100);
+    data.T_theo_lines = cell(1, 100);
+    data.T_text_handles = struct('station', cell(1, 100));
+    
+    % Pre-create mean trace and theoretical arrival time lines
+    data.Z_mean_trace_handle = [];
+    data.Z_pick_line = [];
+    data.Z_theo_mean_line = [];
+    
+    data.R_mean_trace_handle = [];
+    data.R_pick_line = [];
+    data.R_theo_mean_line = [];
+    
+    data.T_mean_trace_handle = [];
+    data.T_pick_line = [];
+    data.T_theo_mean_line = [];
+    
+    % Mark initialization as complete
+    data.waveform_initialized = true;
+    
+    guidata(Anneal_fig, data);
 end
 
+% Shared waveform display function, unifies the display logic for Z, R and T waveforms
+function DisplayComponent(component_type)
+    data = guidata(Anneal_fig);
+    
+    % Select appropriate axes and data based on component type
+    switch component_type
+        case 'Z'
+            display_axes = axes1;
+            trace_handles = data.Z_trace_handles;
+            theo_lines = data.Z_theo_lines;
+            text_handles = data.Z_text_handles;
+            min_idx = data.NminZ;
+            max_idx = data.NmaxZ;
+            selection = data.SelectionZ;
+            sig_data = data.SigFlZ;
+            mean_trace_handle = data.Z_mean_trace_handle;
+            pick_line = data.Z_pick_line;
+            theo_mean_line = data.Z_theo_mean_line;
+            title_prefix = 'Z';
+            rb = @(i) data.rb(i);
+        case 'R'
+            display_axes = axes4;
+            trace_handles = data.R_trace_handles;
+            theo_lines = data.R_theo_lines;
+            text_handles = data.R_text_handles;
+            min_idx = data.NminR;
+            max_idx = data.NmaxR;
+            selection = data.SelectionR;
+            sig_data = data.SigFlR;
+            mean_trace_handle = data.R_mean_trace_handle;
+            pick_line = data.R_pick_line;
+            theo_mean_line = data.R_theo_mean_line;
+            title_prefix = 'R';
+            rb = @(i) data.rb2(i);
+        case 'T'
+            display_axes = axes7;
+            trace_handles = data.T_trace_handles;
+            theo_lines = data.T_theo_lines;
+            text_handles = data.T_text_handles;
+            min_idx = data.NminT;
+            max_idx = data.NmaxT;
+            selection = data.SelectionT;
+            sig_data = data.SigFlT;
+            mean_trace_handle = data.T_mean_trace_handle;
+            pick_line = data.T_pick_line;
+            theo_mean_line = data.T_theo_mean_line;
+            title_prefix = 'T';
+            rb = @(i) data.rb3(i);
+        otherwise
+            error('Invalid component type');
+    end
+    
+    % Switch to appropriate axes
+    axes(display_axes);
+    
+    % Clear axes but preserve graphics objects
+    cla(display_axes);
+    hold on;
+    
+    % Time range
+    Tmax = 0;
+    Tmin = 1000;
+    
+    % Clear all traces outside the current display range
+    for ii = 1:data.Ntraces
+        % Hide traces not in current range
+        if ii < min_idx || ii > max_idx
+            if ~isempty(trace_handles{ii}) && ishandle(trace_handles{ii})
+                set(trace_handles{ii}, 'Visible', 'off');
+            end
+            
+            if ~isempty(theo_lines{ii}) && ishandle(theo_lines{ii})
+                set(theo_lines{ii}, 'Visible', 'off');
+            end
+            
+            % Hide text
+            hide_text_handles(text_handles, ii);
+            
+            % Hide radio button (if aligned)
+            if data.Align == 1
+                set(rb(ii), 'Visible', 'off');
+            end
+        end
+    end
+    
+    % Loop through and display waveforms in current range
+    for ii = min_idx:max_idx
+        if ii > data.Ntraces
+            break;
+        end
+        
+        if data.Align == 1
+            TimeShift = data.residu(ii);
+        else
+            TimeShift = 0;
+        end
+        
+        % Station name
+        StaName = sig_data(ii).HdrData.KSTNM;
+        
+        % Calculate waveform position and time
+        deltat = sig_data(ii).HdrData.DELTA;
+        signal = sig_data(ii).SeisData;
+        time = (0:length(signal)-1) * deltat;
+        
+        % Calculate vertical position for waveform plotting
+        vertical_pos = ii - min_idx + 2;
+        
+        % Draw or update waveform
+        if isempty(trace_handles{ii}) || ~ishandle(trace_handles{ii})
+            % Create new waveform trace
+            [t0, t1, h] = PlotOnTrace(signal, -TimeShift, deltat, vertical_pos);
+            trace_handles{ii} = h;
+        else
+            % Update existing waveform data
+            scaled_signal = signal / max(abs(signal)) * 0.4 + vertical_pos;
+            shifted_time = time - TimeShift;
+            set(trace_handles{ii}, 'XData', shifted_time, 'YData', scaled_signal, 'Visible', 'on');
+            t0 = min(shifted_time);
+            t1 = max(shifted_time);
+        end
+        
+        % Update time range
+        Tmax = max(Tmax, t1);
+        Tmin = min(Tmin, t0);
+        
+        % Add or update station name
+        if isfield(text_handles, 'station') && ~isempty(text_handles(ii).station) && ishandle(text_handles(ii).station)
+            set(text_handles(ii).station, 'Position', [Tmin-3.5, vertical_pos-0.5], 'String', StaName, 'Visible', 'on');
+        else
+            text_handles(ii).station = text(Tmin-3.5, vertical_pos-0.5, StaName, ...
+                'FontSize', 13, 'HorizontalAlignment', 'left', 'VerticalAlignment', 'middle');
+        end
+        
+        % Set waveform color based on selection state
+        if selection(ii) == 0
+            set(trace_handles{ii}, 'Color', [0.8 0.8 0.8],'Visible', 'on');
+            
+            if data.Align == 1
+                set(rb(ii), 'Visible', 'on');
+                set(rb(ii), 'Value', 0);
+            end
+        else
+            % Waveform is selected
+            if data.Align == 1
+                
+                set(rb(ii), 'Visible', 'on');
+                set(rb(ii), 'Value', 1);
+                
+                % Add residual and correlation information
+                switch component_type
+                    case 'Z'
+                        residual = data.residu(ii);
+                        RESIDU = num2str(residual, '%5.3f');
+                        amp = data.AmpZ(ii);
+                        dAmp = num2str(amp, '%4.3f');
+                        strtr = strcat(RESIDU, '/', dAmp);
+                        
+                        if isfield(text_handles, 'residual') && ~isempty(text_handles(ii).residual) && ishandle(text_handles(ii).residual)
+                            set(text_handles(ii).residual, 'Position', [Tmin+2, vertical_pos-0.2], 'String', strtr, 'Visible', 'on');
+                        else
+                            text_handles(ii).residual = text(Tmin+2, vertical_pos-0.2, strtr, ...
+                                'FontSize', 10, 'HorizontalAlignment', 'right', 'VerticalAlignment', 'middle');
+                        end
+                        
+                        Coef = data.CoefCor(ii);
+                        COEF = num2str(Coef, '%4.3f');
+                        if isfield(text_handles, 'correlation') && ~isempty(text_handles(ii).correlation) && ishandle(text_handles(ii).correlation)
+                            set(text_handles(ii).correlation, 'Position', [Tmin-6.5, vertical_pos], 'String', COEF, 'Visible', 'on');
+                        else
+                            text_handles(ii).correlation = text(Tmin-6.5, vertical_pos, COEF, ...
+                                'FontSize', 10, 'HorizontalAlignment', 'right', 'VerticalAlignment', 'middle');
+                        end
+                        
+                        if ii == min_idx && (~isfield(text_handles, 'r2_label') || isempty(text_handles(ii).r2_label) || ~ishandle(text_handles(ii).r2_label))
+                            text_handles(ii).r2_label = text(Tmin-6.5, 1, 'R^2', ...
+                                'FontSize', 10, 'HorizontalAlignment', 'right', 'VerticalAlignment', 'middle');
+                        end
+                    case 'R'
+                        % Display R component related data
+                        snr = data.AmpR(ii);
+                        SNR = num2str(snr, '%4.3f');
+                        if isfield(text_handles, 'snr') && ~isempty(text_handles(ii).snr) && ishandle(text_handles(ii).snr)
+                            set(text_handles(ii).snr, 'Position', [Tmin-1, vertical_pos-0.2], 'String', SNR, 'Visible', 'on');
+                        else
+                            text_handles(ii).snr = text(Tmin-1, vertical_pos-0.2, SNR, ...
+                                'FontSize', 10, 'HorizontalAlignment', 'right', 'VerticalAlignment', 'middle');
+                        end
+                        
+                        Coef = data.CorrR(ii);
+                        COEF = num2str(Coef, '%4.3f');
+                        if isfield(text_handles, 'correlation') && ~isempty(text_handles(ii).correlation) && ishandle(text_handles(ii).correlation)
+                            set(text_handles(ii).correlation, 'Position', [Tmin-6, vertical_pos], 'String', COEF, 'Visible', 'on');
+                        else
+                            text_handles(ii).correlation = text(Tmin-6, vertical_pos, COEF, ...
+                                'FontSize', 10, 'HorizontalAlignment', 'right', 'VerticalAlignment', 'middle');
+                        end
+                end
+                
+                % Draw or update theoretical arrival time line
+                theo_time = sig_data(ii).HdrData.A - sig_data(ii).HdrData.B - TimeShift;
+                if isempty(theo_lines{ii}) || ~ishandle(theo_lines{ii})
+                    theo_lines{ii} = plot([theo_time theo_time], [vertical_pos-0.5, vertical_pos+0.5], 'g');
+                else
+                    set(theo_lines{ii}, 'XData', [theo_time theo_time], 'YData', [vertical_pos-0.5, vertical_pos+0.5], 'Visible', 'on');
+                end
+            end
+        end
+    end
+    
+    % Display mean trace (if aligned)
+    if data.Align == 1
+        % Check if this component is the currently selected component
+        is_selected_comp = false;
+        switch component_type
+            case 'Z'
+                is_selected_comp = (data.selected_comp == 1);
+            case 'R'
+                is_selected_comp = (data.selected_comp == 2);
+            case 'T'
+                is_selected_comp = (data.selected_comp == 3);
+        end
+        
+        if is_selected_comp
+            dt = sig_data(1).HdrData.DELTA;
+            TimeMean = (0:dt:(length(data.MeanTrace)-1)*dt);
+            
+            % Add or update mean trace - use AddTrace function for consistency
+            AddTrace(data.MeanTrace, 0, dt, 1);
+            
+            % Add time pick line and theoretical arrival time line
+            plot([data.tpick data.tpick], [0.7, 1.3], 'k', 'LineWidth', 1);
+            plot([data.PtheoMean data.PtheoMean], [0.7, 1.3], 'g', 'LineWidth', 1);
+        end
+    end
+    
+    % Set axis labels and title
+    xlabel('Time (s)');
+    title([title_prefix '  ', num2str(min_idx), '-', num2str(max_idx), '/', num2str(data.Ntraces)]);
+    xlim([Tmin-5-0.1, Tmax+3.5+0.1]);
+    set(display_axes, 'yticklabel', []);
+    
+    % Save updated graphics object handles
+    switch component_type
+        case 'Z'
+            data.Z_trace_handles = trace_handles;
+            data.Z_theo_lines = theo_lines;
+            data.Z_text_handles = text_handles;
+            data.Z_mean_trace_handle = mean_trace_handle;
+            data.Z_pick_line = pick_line;
+            data.Z_theo_mean_line = theo_mean_line;
+        case 'R'
+            data.R_trace_handles = trace_handles;
+            data.R_theo_lines = theo_lines;
+            data.R_text_handles = text_handles;
+            data.R_mean_trace_handle = mean_trace_handle;
+            data.R_pick_line = pick_line;
+            data.R_theo_mean_line = theo_mean_line;
+        case 'T'
+            data.T_trace_handles = trace_handles;
+            data.T_theo_lines = theo_lines;
+            data.T_text_handles = text_handles;
+            data.T_mean_trace_handle = mean_trace_handle;
+            data.T_pick_line = pick_line;
+            data.T_theo_mean_line = theo_mean_line;
+    end
+    
+    guidata(Anneal_fig, data);
 end
-%----------------------------------------------------------------------------
+
+% Helper function: Hide all text handles associated with a specific trace
+function hide_text_handles(text_handles, idx)
+    fields = fieldnames(text_handles);
+    for i = 1:length(fields)
+        field = fields{i};
+        if isfield(text_handles, field) && idx <= length(text_handles) && ...
+                isfield(text_handles(idx), field) && ~isempty(text_handles(idx).(field)) && ...
+                ishandle(text_handles(idx).(field))
+            set(text_handles(idx).(field), 'Visible', 'off');
+        end
+    end
+end
+
+% Replace the original three display functions with the unified function
+function DisplayTraces
+    DisplayComponent('Z');
+end
+
+function DisplayRadial
+    DisplayComponent('R');
+end
+
+function DisplayTransverse
+    DisplayComponent('T');
+end
 end
