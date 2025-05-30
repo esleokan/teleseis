@@ -3117,17 +3117,17 @@ function InitializeWaveformDisplays
     end
     
     % Pre-create graphics object handle arrays
-    data.Z_trace_handles = cell(1, 100);  % Assume maximum of 100 traces
-    data.Z_theo_lines = cell(1, 100);
-    data.Z_text_handles = struct('station', cell(1, 100), 'residual', cell(1, 100), 'correlation', cell(1, 100));
+    data.Z_trace_handles = cell(1, 500);  % Assume maximum of 500 traces
+    data.Z_theo_lines = cell(1, 500);
+    data.Z_text_handles = struct('station', cell(1, 500), 'residual', cell(1, 500), 'correlation', cell(1, 500));
     
-    data.R_trace_handles = cell(1, 100);
-    data.R_theo_lines = cell(1, 100);
-    data.R_text_handles = struct('station', cell(1, 100), 'snr', cell(1, 100), 'correlation', cell(1, 100));
+    data.R_trace_handles = cell(1, 500);
+    data.R_theo_lines = cell(1, 500);
+    data.R_text_handles = struct('station', cell(1, 500), 'snr', cell(1, 500), 'correlation', cell(1, 500));
     
-    data.T_trace_handles = cell(1, 100);
-    data.T_theo_lines = cell(1, 100);
-    data.T_text_handles = struct('station', cell(1, 100));
+    data.T_trace_handles = cell(1, 500);
+    data.T_theo_lines = cell(1, 500);
+    data.T_text_handles = struct('station', cell(1, 500));
     
     % Pre-create mean trace and theoretical arrival time lines
     data.Z_mean_trace_handle = [];
