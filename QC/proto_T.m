@@ -1011,6 +1011,7 @@ set(popupmenu1,'String',PhasesPot);
 set(popupmenu1,'Value',Sel_Phase);
 
 preprocess_trace;
+        PrecomputeWaveforms;
 
 guidata(Anneal_fig,data)
         
@@ -1284,8 +1285,11 @@ end
 
         % disable rb from previous display
         if data.Align == 1 % annealing runned
-            for ii = data.NminZ:data.NmaxZ
-                set(data.rb(ii),'Visible','off');
+            idx = data.NminZ:data.NmaxZ;
+            handles = data.rb(idx);
+            handles = handles(ishandle(handles));
+            if ~isempty(handles)
+                set(handles, 'Visible', 'off');
             end
         end
         
@@ -1300,7 +1304,10 @@ end
         
         % DISPLAY 10 TRACES
         DisplayTraces;
-        
+
+        Display_Time_Residuals;
+        Display_Amplitude_Residuals;
+
         guidata(Anneal_fig,data)
         
         set(pushbutton2,'Enable','on')
@@ -1325,8 +1332,11 @@ end
         end
         
         if data.Align == 1 % annealing runned
-            for ii = data.NminZ:data.NmaxZ
-                set(data.rb(ii),'Visible','off');
+            idx = data.NminZ:data.NmaxZ;
+            handles = data.rb(idx);
+            handles = handles(ishandle(handles));
+            if ~isempty(handles)
+                set(handles, 'Visible', 'off');
             end
         end
         
@@ -1350,7 +1360,9 @@ end
 
         % DISPLAY 10 TRACES
         DisplayTraces;
-        
+        Display_Time_Residuals;
+        Display_Amplitude_Residuals;
+
         guidata(Anneal_fig,data)
         
         set(pushbutton1,'Enable','on')
@@ -1374,8 +1386,11 @@ end
         end
         
         if data.Align == 1 % annealing runned
-            for ii = data.NminZ:data.NmaxZ
-                set(data.rb(ii),'Visible','off');
+            idx = data.NminZ:data.NmaxZ;
+            handles = data.rb(idx);
+            handles = handles(ishandle(handles));
+            if ~isempty(handles)
+                set(handles, 'Visible', 'off');
             end
         end
         
@@ -1396,7 +1411,9 @@ end
         
         % DISPLAY 10 TRACES
         DisplayTraces;
-        
+        Display_Time_Residuals;
+        Display_Amplitude_Residuals;
+
         guidata(Anneal_fig,data);
         
         set(pushbutton1,'Enable','on')
@@ -1412,8 +1429,11 @@ end
         
         % disable rb from previous display
         if data.Align == 1 % annealing runned
-            for ii = data.NminR:data.NmaxR
-                set(data.rb2(ii),'Visible','off');
+            idx = data.NminR:data.NmaxR;
+            handles = data.rb2(idx);
+            handles = handles(ishandle(handles));
+            if ~isempty(handles)
+                set(handles, 'Visible', 'off');
             end
         end
     
@@ -1429,7 +1449,9 @@ end
         
         % DISPLAY 10 TRACES
         DisplayRadial;
-        
+        Display_Time_Residuals;
+        Display_Amplitude_Residuals;
+
         guidata(Anneal_fig,data);
         
     end
@@ -1444,9 +1466,11 @@ end
         if (data.NmaxR >= data.Ntraces) ; return; end
         
         if data.Align == 1; % annealing runned
-       %     [data.NminR data.NmaxR data.Ntraces]
-            for ii = data.NminR:data.NmaxR
-                set(data.rb2(ii),'Visible','off');
+            idx = data.NminR:data.NmaxR;
+            handles = data.rb2(idx);
+            handles = handles(ishandle(handles));
+            if ~isempty(handles)
+                set(handles, 'Visible', 'off');
             end
         end
         % FIRST TRACE TO DISPLAY
@@ -1468,7 +1492,9 @@ end
         
         % DISPLAY 10 TRACES
         DisplayRadial;
-        
+        Display_Time_Residuals;
+        Display_Amplitude_Residuals;
+
         guidata(Anneal_fig,data)
         
     end
@@ -1484,8 +1510,11 @@ end
         if (data.NminR <= 1) ; return; end
         
         if data.Align == 1; % annealing runned
-            for ii = data.NminR:data.NmaxR
-                set(data.rb2(ii),'Visible','off');
+            idx = data.NminR:data.NmaxR;
+            handles = data.rb2(idx);
+            handles = handles(ishandle(handles));
+            if ~isempty(handles)
+                set(handles, 'Visible', 'off');
             end
         end
         
@@ -1508,7 +1537,9 @@ end
         
         % DISPLAY 10 TRACES
         DisplayRadial;
-        
+        Display_Time_Residuals;
+        Display_Amplitude_Residuals;
+
         guidata(Anneal_fig,data);
         
     end
@@ -1524,8 +1555,11 @@ end
         
         % disable rb from previous display
         if data.Align == 1 % annealing runned
-            for ii = data.NminT:data.NmaxT
-                set(data.rb3(ii),'Visible','off');
+            idx = data.NminT:data.NmaxT;
+            handles = data.rb3(idx);
+            handles = handles(ishandle(handles));
+            if ~isempty(handles)
+                set(handles, 'Visible', 'off');
             end
         end
 
@@ -1537,7 +1571,9 @@ end
         
         % DISPLAY 10 TRACES
         DisplayTransverse;
-        
+        Display_Time_Residuals;
+        Display_Amplitude_Residuals;
+
         guidata(Anneal_fig,data)
         
         set(pushbutton8,'Enable','on')
@@ -1562,8 +1598,11 @@ end
         end
         
         if data.Align == 1 % annealing runned
-            for ii = data.NminT:data.NmaxT
-                set(data.rb3(ii),'Visible','off');
+            idx = data.NminT:data.NmaxT;
+            handles = data.rb3(idx);
+            handles = handles(ishandle(handles));
+            if ~isempty(handles)
+                set(handles, 'Visible', 'off');
             end
         end
         
@@ -1581,7 +1620,9 @@ end
 
         % DISPLAY 10 TRACES
         DisplayTransverse;
-        
+        Display_Time_Residuals;
+        Display_Amplitude_Residuals;
+
         guidata(Anneal_fig,data)
         
         set(pushbutton7,'Enable','on')
@@ -1606,8 +1647,11 @@ end
         end
         
         if data.Align == 1 % annealing runned
-            for ii = data.NminT:data.NmaxT
-                set(data.rb3(ii),'Visible','off');
+            idx = data.NminT:data.NmaxT;
+            handles = data.rb3(idx);
+            handles = handles(ishandle(handles));
+            if ~isempty(handles)
+                set(handles, 'Visible', 'off');
             end
         end
         
@@ -1625,7 +1669,9 @@ end
         
         % DISPLAY 10 TRACES
         DisplayTransverse;
-        
+        Display_Time_Residuals;
+        Display_Amplitude_Residuals;
+
         guidata(Anneal_fig,data);
         
         set(pushbutton7,'Enable','on')
@@ -1636,6 +1682,7 @@ end
     function refilt_button_Callback(hObject, eventdata)
          ui_initialize
          preprocess_trace
+        PrecomputeWaveforms
 
          guidata(Anneal_fig,data)
          data.Align = 0;
@@ -1708,9 +1755,12 @@ end
         data = guidata(Anneal_fig);
     
         if data.Align == 1
-            delete(data.rb);
-            delete(data.rb2);
-            delete(data.rb3);
+            % Hide existing radio buttons instead of deleting them
+            handles = [data.rb(:); data.rb2(:); data.rb3(:)];
+            handles = handles(ishandle(handles));
+            if ~isempty(handles)
+                set(handles, 'Visible', 'off', 'Value', 0);
+            end
         end
         
         % GET CLUSTER INDEX
@@ -1935,7 +1985,8 @@ end
         Radiobutton_transverse;
         DisplayTransverse;
         guidata(Anneal_fig,data)
-        
+        PrecomputeWaveforms
+
         if isfile( fullfile(data.DirSac,'../STATIONS_weight'))
             read_station_weight;
         end
@@ -2282,10 +2333,17 @@ extract_cmt_from_html(outfilename, output_dir);
 % -------------------------------------------------------------------
 function Radiobutton_trace
         data = guidata(Anneal_fig);
+        if isfield(data,'rb') && numel(data.rb) >= data.Ntraces && all(ishandle(data.rb(1:data.Ntraces)))
+            set(data.rb(1:data.Ntraces), 'Visible', 'off', 'Value', 0);
+            guidata(Anneal_fig,data);
+            return;
+        end
+
+        data.rb = gobjects(1, data.Ntraces);
         for ii = 1:data.Ntraces
             row = mod(ii,data.NbDisp);
             if row == 0
-                row = 10;
+                row = data.NbDisp;
             end
             data.rb(ii) = uicontrol( ...
               'Units', 'normalized', ...
@@ -2304,10 +2362,17 @@ end
 % ----------------------------------------------------------------------
 function Radiobutton_radial
         data = guidata(Anneal_fig);
+        if isfield(data,'rb2') && numel(data.rb2) >= data.Ntraces && all(ishandle(data.rb2(1:data.Ntraces)))
+            set(data.rb2(1:data.Ntraces), 'Visible', 'off', 'Value', 0);
+            guidata(Anneal_fig,data);
+            return;
+        end
+
+        data.rb2 = gobjects(1, data.Ntraces);
         for ii = 1:data.Ntraces
             row = mod(ii,data.NbDisp);
             if row == 0
-               row = 10;
+               row = data.NbDisp;
             end
             data.rb2(ii) = uicontrol( ...
               'Units', 'normalized', ...
@@ -2326,10 +2391,17 @@ end
 % ----------------------------------------------------------------------
 function Radiobutton_transverse
         data = guidata(Anneal_fig);
+        if isfield(data,'rb3') && numel(data.rb3) >= data.Ntraces && all(ishandle(data.rb3(1:data.Ntraces)))
+            set(data.rb3(1:data.Ntraces), 'Visible', 'off', 'Value', 0);
+            guidata(Anneal_fig,data);
+            return;
+        end
+
+        data.rb3 = gobjects(1, data.Ntraces);
         for ii = 1:data.Ntraces
             row = mod(ii,data.NbDisp);
             if row == 0
-               row = 10;
+               row = data.NbDisp;
             end
             data.rb3(ii) = uicontrol( ...
               'Units', 'normalized', ...
@@ -2437,6 +2509,14 @@ function Display_Time_Residuals
         data.toolbar_added = true;
     end
     
+    % Compute station coordinates once for current projection
+    if ~isfield(data, 'station_xy') || size(data.station_xy,1) ~= Ntraces
+        lons = arrayfun(@(s) s.HdrData.STLO, SigFl);
+        lats = arrayfun(@(s) s.HdrData.STLA, SigFl);
+        [x, y] = m_ll2xy(lons, lats);
+        data.station_xy = [x(:) y(:)];
+    end
+
     % Update or create station markers
     valid_stations = find(Selection == 1);
     count = 0;
@@ -2444,14 +2524,13 @@ function Display_Time_Residuals
     for i = valid_stations
         count = count + 1;
         % Get station coordinates
-        lon = SigFl(i).HdrData.STLO;
-        lat = SigFl(i).HdrData.STLA;
         residual = data.residu(i);
         staname = SigFl(i).HdrData.KSTNM;
         color = data.color_table(Couleurs(i), :);
-        
-        % Convert geographic coordinates to m_map projection coordinates
-        [x, y] = m_ll2xy(lon, lat);
+
+        % Use precomputed map coordinates
+        x = data.station_xy(i,1);
+        y = data.station_xy(i,2);
         
         % If station marker already exists, update it
         if ishandle(data.station_markers_time(i)) && ~isempty(data.station_markers_time(i))
@@ -2466,12 +2545,17 @@ function Display_Time_Residuals
     end
     
     % Hide station markers not in selection
-    for i = 1:Ntraces
-        if ~ismember(i, valid_stations) && ishandle(data.station_markers_time(i)) && ~isempty(data.station_markers_time(i))
-            set(data.station_markers_time(i), 'Visible', 'off');
-        elseif ismember(i, valid_stations) && ishandle(data.station_markers_time(i)) && ~isempty(data.station_markers_time(i))
-            set(data.station_markers_time(i), 'Visible', 'on');
-        end
+    visible_idx = false(Ntraces,1);
+    visible_idx(valid_stations) = true;
+    handles_time = data.station_markers_time;
+    valid_handle = arrayfun(@(h) isgraphics(h), handles_time);
+    off_idx = ~visible_idx & valid_handle;
+    on_idx  = visible_idx & valid_handle;
+    if any(off_idx)
+        set(handles_time(off_idx), 'Visible', 'off');
+    end
+    if any(on_idx)
+        set(handles_time(on_idx), 'Visible', 'on');
     end
     
     % Set data cursor mode
@@ -2570,6 +2654,14 @@ function Display_Amplitude_Residuals
         axtoolbar(map_axes, {'datacursor', 'zoomin', 'zoomout', 'restoreview'});
         data.toolbar_added_amp = true;
     end
+
+    % Compute station coordinates once for current projection
+    if ~isfield(data, 'station_xy') || size(data.station_xy,1) ~= Ntraces
+        lons = arrayfun(@(s) s.HdrData.STLO, SigFl);
+        lats = arrayfun(@(s) s.HdrData.STLA, SigFl);
+        [x, y] = m_ll2xy(lons, lats);
+        data.station_xy = [x(:) y(:)];
+    end
     
     % Update or create station markers
     valid_stations = find(Selection == 1);
@@ -2578,14 +2670,13 @@ function Display_Amplitude_Residuals
     for i = valid_stations
         count = count + 1;
         % Get station coordinates
-        lon = SigFl(i).HdrData.STLO;
-        lat = SigFl(i).HdrData.STLA;
         amplitude = residu(i);
         staname = SigFl(i).HdrData.KSTNM;
         color = data.color_table(Couleurs(i), :);
-        
-        % Convert geographic coordinates to m_map projection coordinates
-        [x, y] = m_ll2xy(lon, lat);
+
+        % Use precomputed map coordinates
+        x = data.station_xy(i,1);
+        y = data.station_xy(i,2);
         
         % If station marker already exists, update it
         if ishandle(data.station_markers_amp(i)) && ~isempty(data.station_markers_amp(i))
@@ -2600,12 +2691,17 @@ function Display_Amplitude_Residuals
     end
     
     % Hide station markers not in selection
-    for i = 1:Ntraces
-        if ~ismember(i, valid_stations) && ishandle(data.station_markers_amp(i)) && ~isempty(data.station_markers_amp(i))
-            set(data.station_markers_amp(i), 'Visible', 'off');
-        elseif ismember(i, valid_stations) && ishandle(data.station_markers_amp(i)) && ~isempty(data.station_markers_amp(i))
-            set(data.station_markers_amp(i), 'Visible', 'on');
-        end
+    visible_idx = false(Ntraces,1);
+    visible_idx(valid_stations) = true;
+    handles_amp = data.station_markers_amp;
+    valid_handle = arrayfun(@(h) isgraphics(h), handles_amp);
+    off_idx = ~visible_idx & valid_handle;
+    on_idx  = visible_idx & valid_handle;
+    if any(off_idx)
+        set(handles_amp(off_idx), 'Visible', 'off');
+    end
+    if any(on_idx)
+        set(handles_amp(on_idx), 'Visible', 'on');
     end
     
     % Set data cursor mode
@@ -3148,6 +3244,33 @@ function InitializeWaveformDisplays
     guidata(Anneal_fig, data);
 end
 
+% Precompute scaled waveform and time vectors to speed up display
+function PrecomputeWaveforms
+    data = guidata(Anneal_fig);
+    N = data.Ntraces;
+    data.precomputed_Z = cell(1, N);
+    data.precomputed_R = cell(1, N);
+    data.precomputed_T = cell(1, N);
+    data.precomputed_time = cell(1, N);
+    for ii = 1:N
+        if data.Align == 1 && isfield(data.SigFlZ(ii), 'SeisDataAlign')
+            zsig = data.SigFlZ(ii).SeisDataAlign;
+            rsig = data.SigFlR(ii).SeisDataAlign;
+            tsig = data.SigFlT(ii).SeisDataAlign;
+        else
+            zsig = data.SigFlZ(ii).SeisData;
+            rsig = data.SigFlR(ii).SeisData;
+            tsig = data.SigFlT(ii).SeisData;
+        end
+        dt = data.SigFlZ(ii).HdrData.DELTA;
+        data.precomputed_time{ii} = (0:length(zsig)-1) * dt;
+        data.precomputed_Z{ii} = zsig ./ max(abs(zsig)) * 0.4;
+        data.precomputed_R{ii} = rsig ./ max(abs(rsig)) * 0.4;
+        data.precomputed_T{ii} = tsig ./ max(abs(tsig)) * 0.4;
+    end
+    guidata(Anneal_fig, data);
+end
+
 % Shared waveform display function, unifies the display logic for Z, R and T waveforms
 function DisplayComponent(component_type)
     data = guidata(Anneal_fig);
@@ -3248,23 +3371,33 @@ function DisplayComponent(component_type)
         % Station name
         StaName = sig_data(ii).HdrData.KSTNM;
         
-        % Calculate waveform position and time
-        deltat = sig_data(ii).HdrData.DELTA;
-        signal = sig_data(ii).SeisData;
-        time = (0:length(signal)-1) * deltat;
-        
+        % Retrieve precomputed waveform and time
+        time = data.precomputed_time{ii};
+        switch component_type
+            case 'Z'
+                base_signal = data.precomputed_Z{ii};
+            case 'R'
+                base_signal = data.precomputed_R{ii};
+            case 'T'
+                base_signal = data.precomputed_T{ii};
+        end
+
         % Calculate vertical position for waveform plotting
         vertical_pos = ii - min_idx + 2;
-        
+
         % Draw or update waveform
         if isempty(trace_handles{ii}) || ~ishandle(trace_handles{ii})
             % Create new waveform trace
-            [t0, t1, h] = PlotOnTrace(signal, -TimeShift, deltat, vertical_pos);
+            shifted_time = time - TimeShift;
+            scaled_signal = base_signal + vertical_pos;
+            h = plot(shifted_time, scaled_signal, 'k', 'LineWidth', 2);
+            t0 = min(shifted_time);
+            t1 = max(shifted_time);
             trace_handles{ii} = h;
         else
             % Update existing waveform data
-            scaled_signal = signal / max(abs(signal)) * 0.4 + vertical_pos;
             shifted_time = time - TimeShift;
+            scaled_signal = base_signal + vertical_pos;
             set(trace_handles{ii}, 'XData', shifted_time, 'YData', scaled_signal, 'Visible', 'on');
             t0 = min(shifted_time);
             t1 = max(shifted_time);
