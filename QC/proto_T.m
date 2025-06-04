@@ -1011,6 +1011,7 @@ set(popupmenu1,'String',PhasesPot);
 set(popupmenu1,'Value',Sel_Phase);
 
 preprocess_trace;
+        PrecomputeWaveforms;
 
 guidata(Anneal_fig,data)
         
@@ -1303,7 +1304,10 @@ end
         
         % DISPLAY 10 TRACES
         DisplayTraces;
-        
+
+        Display_Time_Residuals;
+        Display_Amplitude_Residuals;
+
         guidata(Anneal_fig,data)
         
         set(pushbutton2,'Enable','on')
@@ -1356,7 +1360,9 @@ end
 
         % DISPLAY 10 TRACES
         DisplayTraces;
-        
+        Display_Time_Residuals;
+        Display_Amplitude_Residuals;
+
         guidata(Anneal_fig,data)
         
         set(pushbutton1,'Enable','on')
@@ -1405,7 +1411,9 @@ end
         
         % DISPLAY 10 TRACES
         DisplayTraces;
-        
+        Display_Time_Residuals;
+        Display_Amplitude_Residuals;
+
         guidata(Anneal_fig,data);
         
         set(pushbutton1,'Enable','on')
@@ -1441,7 +1449,9 @@ end
         
         % DISPLAY 10 TRACES
         DisplayRadial;
-        
+        Display_Time_Residuals;
+        Display_Amplitude_Residuals;
+
         guidata(Anneal_fig,data);
         
     end
@@ -1482,7 +1492,9 @@ end
         
         % DISPLAY 10 TRACES
         DisplayRadial;
-        
+        Display_Time_Residuals;
+        Display_Amplitude_Residuals;
+
         guidata(Anneal_fig,data)
         
     end
@@ -1525,7 +1537,9 @@ end
         
         % DISPLAY 10 TRACES
         DisplayRadial;
-        
+        Display_Time_Residuals;
+        Display_Amplitude_Residuals;
+
         guidata(Anneal_fig,data);
         
     end
@@ -1557,7 +1571,9 @@ end
         
         % DISPLAY 10 TRACES
         DisplayTransverse;
-        
+        Display_Time_Residuals;
+        Display_Amplitude_Residuals;
+
         guidata(Anneal_fig,data)
         
         set(pushbutton8,'Enable','on')
@@ -1604,7 +1620,9 @@ end
 
         % DISPLAY 10 TRACES
         DisplayTransverse;
-        
+        Display_Time_Residuals;
+        Display_Amplitude_Residuals;
+
         guidata(Anneal_fig,data)
         
         set(pushbutton7,'Enable','on')
@@ -1651,7 +1669,9 @@ end
         
         % DISPLAY 10 TRACES
         DisplayTransverse;
-        
+        Display_Time_Residuals;
+        Display_Amplitude_Residuals;
+
         guidata(Anneal_fig,data);
         
         set(pushbutton7,'Enable','on')
@@ -1662,6 +1682,7 @@ end
     function refilt_button_Callback(hObject, eventdata)
          ui_initialize
          preprocess_trace
+        PrecomputeWaveforms
 
          guidata(Anneal_fig,data)
          data.Align = 0;
@@ -1964,7 +1985,8 @@ end
         Radiobutton_transverse;
         DisplayTransverse;
         guidata(Anneal_fig,data)
-        
+        PrecomputeWaveforms
+
         if isfile( fullfile(data.DirSac,'../STATIONS_weight'))
             read_station_weight;
         end
@@ -3222,6 +3244,33 @@ function InitializeWaveformDisplays
     guidata(Anneal_fig, data);
 end
 
+% Precompute scaled waveform and time vectors to speed up display
+function PrecomputeWaveforms
+    data = guidata(Anneal_fig);
+    N = data.Ntraces;
+    data.precomputed_Z = cell(1, N);
+    data.precomputed_R = cell(1, N);
+    data.precomputed_T = cell(1, N);
+    data.precomputed_time = cell(1, N);
+    for ii = 1:N
+        if data.Align == 1 && isfield(data.SigFlZ(ii), 'SeisDataAlign')
+            zsig = data.SigFlZ(ii).SeisDataAlign;
+            rsig = data.SigFlR(ii).SeisDataAlign;
+            tsig = data.SigFlT(ii).SeisDataAlign;
+        else
+            zsig = data.SigFlZ(ii).SeisData;
+            rsig = data.SigFlR(ii).SeisData;
+            tsig = data.SigFlT(ii).SeisData;
+        end
+        dt = data.SigFlZ(ii).HdrData.DELTA;
+        data.precomputed_time{ii} = (0:length(zsig)-1) * dt;
+        data.precomputed_Z{ii} = zsig ./ max(abs(zsig)) * 0.4;
+        data.precomputed_R{ii} = rsig ./ max(abs(rsig)) * 0.4;
+        data.precomputed_T{ii} = tsig ./ max(abs(tsig)) * 0.4;
+    end
+    guidata(Anneal_fig, data);
+end
+
 % Shared waveform display function, unifies the display logic for Z, R and T waveforms
 function DisplayComponent(component_type)
     data = guidata(Anneal_fig);
@@ -3322,23 +3371,33 @@ function DisplayComponent(component_type)
         % Station name
         StaName = sig_data(ii).HdrData.KSTNM;
         
-        % Calculate waveform position and time
-        deltat = sig_data(ii).HdrData.DELTA;
-        signal = sig_data(ii).SeisData;
-        time = (0:length(signal)-1) * deltat;
-        
+        % Retrieve precomputed waveform and time
+        time = data.precomputed_time{ii};
+        switch component_type
+            case 'Z'
+                base_signal = data.precomputed_Z{ii};
+            case 'R'
+                base_signal = data.precomputed_R{ii};
+            case 'T'
+                base_signal = data.precomputed_T{ii};
+        end
+
         % Calculate vertical position for waveform plotting
         vertical_pos = ii - min_idx + 2;
-        
+
         % Draw or update waveform
         if isempty(trace_handles{ii}) || ~ishandle(trace_handles{ii})
             % Create new waveform trace
-            [t0, t1, h] = PlotOnTrace(signal, -TimeShift, deltat, vertical_pos);
+            shifted_time = time - TimeShift;
+            scaled_signal = base_signal + vertical_pos;
+            h = plot(shifted_time, scaled_signal, 'k', 'LineWidth', 2);
+            t0 = min(shifted_time);
+            t1 = max(shifted_time);
             trace_handles{ii} = h;
         else
             % Update existing waveform data
-            scaled_signal = signal / max(abs(signal)) * 0.4 + vertical_pos;
             shifted_time = time - TimeShift;
+            scaled_signal = base_signal + vertical_pos;
             set(trace_handles{ii}, 'XData', shifted_time, 'YData', scaled_signal, 'Visible', 'on');
             t0 = min(shifted_time);
             t1 = max(shifted_time);
